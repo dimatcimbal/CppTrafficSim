@@ -1,6 +1,8 @@
 #include <iostream>
-#include <random>
 #include "TrafficLight.h"
+
+using namespace std::chrono;
+using namespace std::chrono_literals;
 
 /* Implementation of class "MessageQueue" */
 
@@ -23,9 +25,9 @@ void MessageQueue<T>::send(T &&msg)
 
 /* Implementation of class "TrafficLight" */
 
-/* 
 TrafficLight::TrafficLight()
 {
+    // the thread should not be running, no synchronization needed
     _currentPhase = TrafficLightPhase::red;
 }
 
@@ -38,21 +40,35 @@ void TrafficLight::waitForGreen()
 
 TrafficLightPhase TrafficLight::getCurrentPhase()
 {
+    std::lock_guard<std::mutex> lck(_mutex); // read is synchronized
     return _currentPhase;
 }
 
 void TrafficLight::simulate()
 {
     // FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class. 
+   threads.emplace_back(&TrafficLight::cycleThroughPhases, this);
+}
+
+void TrafficLight::toggleCurrentPhase() {
+    std::lock_guard<std::mutex> lck(_mutex); // write is synchronized
+    _currentPhase = _currentPhase == TrafficLightPhase::red ? TrafficLightPhase::green : TrafficLightPhase::red;
 }
 
 // virtual function which is executed in a thread
-void TrafficLight::cycleThroughPhases()
-{
+void TrafficLight::cycleThroughPhases() {
     // FP.2a : Implement the function with an infinite loop that measures the time between two loop cycles 
     // and toggles the current phase of the traffic light between red and green and sends an update method 
     // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds. 
-    // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles. 
-}
+    // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles.
+    auto next(high_resolution_clock::now() + seconds(_dis(_gen)));
+    
+    for (time_point<high_resolution_clock> now = high_resolution_clock::now();;now = high_resolution_clock::now()) {
+        if (now > next) {
+            toggleCurrentPhase();
+            next = now + seconds(_dis(_gen));
+        }
 
-*/
+        std::this_thread::yield(); // back to "ready" state; allow the scheduler to run other threads 
+    }
+}
