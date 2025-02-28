@@ -65,7 +65,6 @@ void TrafficLight::simulate()
 }
 
 void TrafficLight::toggleCurrentPhase() {
-    std::lock_guard<std::mutex> lock(_currentPhase_mtx); // write is synchronized
     _currentPhase = _currentPhase == TrafficLightPhase::red ? TrafficLightPhase::green : TrafficLightPhase::red;
     _messages.send(std::move(_currentPhase));
 }
